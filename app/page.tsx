@@ -21,21 +21,15 @@ type ItemCarrito = {
   notas: string;
 };
 
-type MetodoPago = 'efectivo' | 'transferencia' | '';
-
 export default function Home() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
-
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
-
-  const [pantallaPago, setPantallaPago] = useState(false);
-  const [metodoPago, setMetodoPago] =
-    useState<MetodoPago>('');
-
-  const [recibido, setRecibido] = useState('');
   const [guardando, setGuardando] = useState(false);
+
+  // NUEVO: nombre del cliente
+  const [nombreCliente, setNombreCliente] = useState('');
 
   useEffect(() => {
     cargarProductos();
@@ -78,9 +72,7 @@ export default function Home() {
         nombre: producto.nombre,
 
         opciones: (producto.variantes ?? [])
-          .filter(
-            (variante: any) => variante.activo
-          )
+          .filter((variante: any) => variante.activo)
           .map((variante: any) => ({
             nombre: variante.nombre,
             precio: Number(variante.precio),
@@ -142,8 +134,7 @@ export default function Home() {
           item.variante === variante
             ? {
                 ...item,
-                cantidad:
-                  item.cantidad + cambio,
+                cantidad: item.cantidad + cambio,
               }
             : item
         )
@@ -175,57 +166,27 @@ export default function Home() {
     0
   );
 
-  const cantidadRecibida =
-    Number(recibido) || 0;
+  async function enviarPedido() {
+    if (guardando || carrito.length === 0) return;
 
-  const cambio =
-    cantidadRecibida > total
-      ? cantidadRecibida - total
-      : 0;
-
-  function continuarPedido() {
-    if (carrito.length === 0) return;
-
-    setPantallaPago(true);
-    setMetodoPago('');
-    setRecibido('');
-  }
-
-  function volverPedido() {
-    setPantallaPago(false);
-    setMetodoPago('');
-    setRecibido('');
-  }
-
-  async function registrarPago() {
-    if (guardando) return;
-
-    if (!metodoPago) {
-      alert('Selecciona un método de pago.');
-      return;
-    }
-
-    if (
-      metodoPago === 'efectivo' &&
-      cantidadRecibida < total
-    ) {
-      alert(
-        'La cantidad recibida es menor al total.'
-      );
+    // Comprobar que tenga nombre
+    if (nombreCliente.trim() === '') {
+      alert('Escribe el nombre del cliente.');
       return;
     }
 
     setGuardando(true);
 
-    // 1. Crear pedido
+    // 1. Crear pedido SIN cobrar todavía
     const { data: pedido, error: errorPedido } =
       await supabase
         .from('pedidos')
         .insert({
           estado: 'pendiente',
-          metodo_pago: metodoPago,
+          metodo_pago: null,
           total: total,
           notas: null,
+          nombre_cliente: nombreCliente.trim(),
         })
         .select()
         .single();
@@ -245,22 +206,21 @@ export default function Home() {
       return;
     }
 
-    // 2. Preparar productos
+    // 2. Preparar productos del pedido
     const detalles = carrito.map((item) => ({
       pedido_id: pedido.id,
       producto_id: item.productoId,
       variante: item.variante,
       cantidad: item.cantidad,
       precio_unitario: item.precio,
-      subtotal:
-        item.precio * item.cantidad,
+      subtotal: item.precio * item.cantidad,
       notas:
         item.notas.trim() === ''
           ? null
           : item.notas.trim(),
     }));
 
-    // 3. Guardar detalle
+    // 3. Guardar productos
     const { error: errorDetalles } =
       await supabase
         .from('detalle_pedido')
@@ -282,314 +242,15 @@ export default function Home() {
     }
 
     alert(
-      metodoPago === 'efectivo'
-        ? `Venta registrada. Cambio: $${cambio}`
-        : 'Transferencia registrada correctamente.'
+      `Pedido #${pedido.numero ?? pedido.id} de ${nombreCliente.trim()} enviado correctamente.`
     );
 
-    // Preparar siguiente venta
+    // Preparar el siguiente pedido
     setCarrito([]);
-    setPantallaPago(false);
-    setMetodoPago('');
-    setRecibido('');
+    setNombreCliente('');
     setGuardando(false);
   }
 
-  // PANTALLA DE COBRO
-  if (pantallaPago) {
-    return (
-      <main style={estiloPrincipal}>
-        <header
-          style={{
-            marginBottom: '25px',
-          }}
-        >
-          <h1 style={tituloMoras}>
-            MORAS
-          </h1>
-
-          <p style={{ marginTop: '5px' }}>
-            Cobrar pedido
-          </p>
-        </header>
-
-        <section style={tarjeta}>
-          <h2>Resumen</h2>
-
-          {carrito.map((item) => (
-            <div
-              key={`${item.productoId}-${item.variante}`}
-              style={{
-                borderBottom:
-                  '1px solid #eee',
-                padding: '14px 0',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent:
-                    'space-between',
-                  gap: '15px',
-                }}
-              >
-                <div>
-                  <strong>
-                    {item.nombre}
-                  </strong>
-
-                  {item.variante !==
-                    'Único' && (
-                    <div>
-                      {item.variante}
-                    </div>
-                  )}
-
-                  <div>
-                    {item.cantidad} × $
-                    {item.precio}
-                  </div>
-                </div>
-
-                <strong>
-                  $
-                  {item.precio *
-                    item.cantidad}
-                </strong>
-              </div>
-
-              {item.notas && (
-                <div
-                  style={{
-                    marginTop: '8px',
-                    color: '#8b1e5a',
-                  }}
-                >
-                  Nota: {item.notas}
-                </div>
-              )}
-            </div>
-          ))}
-
-          <div
-            style={{
-              display: 'flex',
-              justifyContent:
-                'space-between',
-              fontSize: '30px',
-              marginTop: '22px',
-            }}
-          >
-            <strong>TOTAL</strong>
-            <strong>${total}</strong>
-          </div>
-        </section>
-
-        <section style={tarjeta}>
-          <h2>¿Cómo pagará?</h2>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns:
-                '1fr 1fr',
-              gap: '12px',
-            }}
-          >
-            <button
-              onClick={() => {
-                setMetodoPago(
-                  'efectivo'
-                );
-                setRecibido('');
-              }}
-              style={{
-                ...botonPago,
-                background:
-                  metodoPago ===
-                  'efectivo'
-                    ? '#9c2864'
-                    : '#f2dce8',
-
-                color:
-                  metodoPago ===
-                  'efectivo'
-                    ? 'white'
-                    : '#8b1e5a',
-              }}
-            >
-              Efectivo
-            </button>
-
-            <button
-              onClick={() => {
-                setMetodoPago(
-                  'transferencia'
-                );
-                setRecibido('');
-              }}
-              style={{
-                ...botonPago,
-                background:
-                  metodoPago ===
-                  'transferencia'
-                    ? '#9c2864'
-                    : '#f2dce8',
-
-                color:
-                  metodoPago ===
-                  'transferencia'
-                    ? 'white'
-                    : '#8b1e5a',
-              }}
-            >
-              Transferencia
-            </button>
-          </div>
-
-          {metodoPago ===
-            'efectivo' && (
-            <div
-              style={{
-                marginTop: '25px',
-              }}
-            >
-              <label
-                style={{
-                  display: 'block',
-                  fontWeight: 'bold',
-                  marginBottom: '8px',
-                }}
-              >
-                Cantidad recibida
-              </label>
-
-              <input
-                type="number"
-                inputMode="decimal"
-                min="0"
-                value={recibido}
-                onChange={(e) =>
-                  setRecibido(
-                    e.target.value
-                  )
-                }
-                placeholder="Ej. 300"
-                style={campo}
-              />
-
-              <div
-                style={{
-                  marginTop: '20px',
-                  display: 'flex',
-                  justifyContent:
-                    'space-between',
-                  fontSize: '25px',
-                }}
-              >
-                <strong>Cambio</strong>
-
-                <strong>
-                  ${cambio}
-                </strong>
-              </div>
-
-              {recibido !== '' &&
-                cantidadRecibida <
-                  total && (
-                  <p
-                    style={{
-                      color: '#b00020',
-                      fontWeight:
-                        'bold',
-                    }}
-                  >
-                    Faltan $
-                    {total -
-                      cantidadRecibida}
-                  </p>
-                )}
-            </div>
-          )}
-
-          {metodoPago ===
-            'transferencia' && (
-            <div
-              style={{
-                marginTop: '25px',
-                padding: '15px',
-                background: '#fff7fb',
-                borderRadius: '12px',
-              }}
-            >
-              Total a transferir:{' '}
-              <strong>
-                ${total}
-              </strong>
-            </div>
-          )}
-
-          <button
-            onClick={registrarPago}
-            disabled={
-              guardando ||
-              !metodoPago ||
-              (metodoPago ===
-                'efectivo' &&
-                cantidadRecibida <
-                  total)
-            }
-            style={{
-              width: '100%',
-              padding: '18px',
-              marginTop: '25px',
-              border: 'none',
-              borderRadius: '12px',
-
-              background:
-                guardando ||
-                !metodoPago ||
-                (metodoPago ===
-                  'efectivo' &&
-                  cantidadRecibida <
-                    total)
-                  ? '#ccc'
-                  : '#9c2864',
-
-              color: 'white',
-              fontSize: '18px',
-              fontWeight: 'bold',
-            }}
-          >
-            {guardando
-              ? 'Registrando...'
-              : 'Registrar pago'}
-          </button>
-
-          <button
-            onClick={volverPedido}
-            disabled={guardando}
-            style={{
-              width: '100%',
-              padding: '15px',
-              marginTop: '10px',
-              border:
-                '1px solid #9c2864',
-              borderRadius: '12px',
-              background: 'white',
-              color: '#9c2864',
-              fontSize: '16px',
-              fontWeight: 'bold',
-            }}
-          >
-            Volver al pedido
-          </button>
-        </section>
-      </main>
-    );
-  }
-
-  // PANTALLA DE NUEVA VENTA
   return (
     <main style={estiloPrincipal}>
       <header
@@ -602,16 +263,14 @@ export default function Home() {
         </h1>
 
         <p style={{ marginTop: '5px' }}>
-          Nueva venta
+          Nuevo pedido
         </p>
       </header>
 
       <h2>Productos</h2>
 
       {cargando && (
-        <p>
-          Cargando productos...
-        </p>
+        <p>Cargando productos...</p>
       )}
 
       {error && (
@@ -636,64 +295,82 @@ export default function Home() {
           gap: '15px',
         }}
       >
-        {productos.map(
-          (producto) => (
-            <div
-              key={producto.id}
-              style={tarjeta}
+        {productos.map((producto) => (
+          <div
+            key={producto.id}
+            style={tarjeta}
+          >
+            <h3
+              style={{
+                marginTop: 0,
+              }}
             >
-              <h3
+              {producto.nombre}
+            </h3>
+
+            {producto.opciones.map((opcion) => (
+              <button
+                key={opcion.nombre}
+                onClick={() =>
+                  agregar(
+                    producto.id,
+                    producto.nombre,
+                    opcion.nombre,
+                    opcion.precio
+                  )
+                }
                 style={{
-                  marginTop: 0,
+                  width: '100%',
+                  padding: '14px',
+                  marginBottom: '8px',
+                  border: 'none',
+                  borderRadius: '10px',
+                  background: '#9c2864',
+                  color: 'white',
+                  fontSize: '16px',
+                  cursor: 'pointer',
                 }}
               >
-                {producto.nombre}
-              </h3>
-
-              {producto.opciones.map(
-                (opcion) => (
-                  <button
-                    key={
-                      opcion.nombre
-                    }
-                    onClick={() =>
-                      agregar(
-                        producto.id,
-                        producto.nombre,
-                        opcion.nombre,
-                        opcion.precio
-                      )
-                    }
-                    style={{
-                      width: '100%',
-                      padding: '14px',
-                      marginBottom:
-                        '8px',
-                      border: 'none',
-                      borderRadius:
-                        '10px',
-                      background:
-                        '#9c2864',
-                      color: 'white',
-                      fontSize: '16px',
-                      cursor:
-                        'pointer',
-                    }}
-                  >
-                    {opcion.nombre ===
-                    'Único'
-                      ? `$${opcion.precio}`
-                      : `${opcion.nombre} · $${opcion.precio}`}
-                  </button>
-                )
-              )}
-            </div>
-          )
-        )}
+                {opcion.nombre === 'Único' ||
+                opcion.nombre === 'Normal'
+                  ? `$${opcion.precio}`
+                  : `${opcion.nombre} · $${opcion.precio}`}
+              </button>
+            ))}
+          </div>
+        ))}
       </div>
 
       <section style={tarjetaPedido}>
         <h2>Pedido</h2>
+
+        {/* NOMBRE DEL CLIENTE */}
+        <div
+          style={{
+            marginBottom: '20px',
+          }}
+        >
+          <label
+            style={{
+              display: 'block',
+              fontWeight: 'bold',
+              marginBottom: '8px',
+            }}
+          >
+            Nombre del cliente
+          </label>
+
+          <input
+            type="text"
+            value={nombreCliente}
+            onChange={(e) =>
+              setNombreCliente(e.target.value)
+            }
+            placeholder="Ej. Carlos"
+            maxLength={50}
+            style={campo}
+          />
+        </div>
 
         {carrito.length === 0 && (
           <p
@@ -701,8 +378,7 @@ export default function Home() {
               color: '#777',
             }}
           >
-            Todavía no has agregado
-            productos.
+            Todavía no has agregado productos.
           </p>
         )}
 
@@ -711,15 +387,13 @@ export default function Home() {
             key={`${item.productoId}-${item.variante}`}
             style={{
               padding: '15px 0',
-              borderBottom:
-                '1px solid #eee',
+              borderBottom: '1px solid #eee',
             }}
           >
             <div
               style={{
                 display: 'flex',
-                justifyContent:
-                  'space-between',
+                justifyContent: 'space-between',
                 alignItems: 'center',
                 gap: '10px',
               }}
@@ -729,12 +403,12 @@ export default function Home() {
                   {item.nombre}
                 </strong>
 
-                {item.variante !==
-                  'Único' && (
-                  <div>
-                    {item.variante}
-                  </div>
-                )}
+                {item.variante !== 'Único' &&
+                  item.variante !== 'Normal' && (
+                    <div>
+                      {item.variante}
+                    </div>
+                  )}
 
                 <div>
                   ${item.precio} c/u
@@ -744,8 +418,7 @@ export default function Home() {
               <div
                 style={{
                   display: 'flex',
-                  alignItems:
-                    'center',
+                  alignItems: 'center',
                   gap: '10px',
                 }}
               >
@@ -757,9 +430,7 @@ export default function Home() {
                       -1
                     )
                   }
-                  style={
-                    botonCantidad
-                  }
+                  style={botonCantidad}
                 >
                   −
                 </button>
@@ -776,9 +447,7 @@ export default function Home() {
                       1
                     )
                   }
-                  style={
-                    botonCantidad
-                  }
+                  style={botonCantidad}
                 >
                   +
                 </button>
@@ -813,8 +482,7 @@ export default function Home() {
         <div
           style={{
             display: 'flex',
-            justifyContent:
-              'space-between',
+            justifyContent: 'space-between',
             marginTop: '20px',
             fontSize: '26px',
           }}
@@ -824,9 +492,11 @@ export default function Home() {
         </div>
 
         <button
-          onClick={continuarPedido}
+          onClick={enviarPedido}
           disabled={
-            carrito.length === 0
+            carrito.length === 0 ||
+            nombreCliente.trim() === '' ||
+            guardando
           }
           style={{
             width: '100%',
@@ -836,7 +506,9 @@ export default function Home() {
             borderRadius: '12px',
 
             background:
-              carrito.length === 0
+              carrito.length === 0 ||
+              nombreCliente.trim() === '' ||
+              guardando
                 ? '#ccc'
                 : '#9c2864',
 
@@ -845,7 +517,9 @@ export default function Home() {
             fontWeight: 'bold',
           }}
         >
-          Continuar pedido
+          {guardando
+            ? 'Enviando...'
+            : 'Enviar pedido'}
         </button>
       </section>
     </main>
@@ -895,22 +569,11 @@ const botonCantidad = {
   cursor: 'pointer',
 };
 
-const botonPago = {
-  padding: '18px',
-  border: 'none',
-  borderRadius: '12px',
-  fontSize: '17px',
-  fontWeight: 'bold',
-  cursor: 'pointer',
-};
-
 const campo = {
   width: '100%',
-  boxSizing:
-    'border-box' as const,
+  boxSizing: 'border-box' as const,
   padding: '14px',
-  border:
-    '1px solid #ddd',
+  border: '1px solid #ddd',
   borderRadius: '10px',
   fontSize: '16px',
 };
