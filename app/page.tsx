@@ -21,15 +21,32 @@ type ItemCarrito = {
   notas: string;
 };
 
-export default function Home() {
-  const [productos, setProductos] = useState<Producto[]>([]);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState('');
-  const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
-  const [guardando, setGuardando] = useState(false);
+type Categoria =
+  | 'postres'
+  | 'freidora'
+  | 'bebidas';
 
-  // NUEVO: nombre del cliente
-  const [nombreCliente, setNombreCliente] = useState('');
+export default function Home() {
+  const [productos, setProductos] =
+    useState<Producto[]>([]);
+
+  const [cargando, setCargando] =
+    useState(true);
+
+  const [error, setError] =
+    useState('');
+
+  const [carrito, setCarrito] =
+    useState<ItemCarrito[]>([]);
+
+  const [guardando, setGuardando] =
+    useState(false);
+
+  const [nombreCliente, setNombreCliente] =
+    useState('');
+
+  const [categoria, setCategoria] =
+    useState<Categoria>('postres');
 
   useEffect(() => {
     cargarProductos();
@@ -55,7 +72,10 @@ export default function Home() {
       .order('id');
 
     if (error) {
-      console.error('Error al cargar productos:', error);
+      console.error(
+        'Error al cargar productos:',
+        error
+      );
 
       setError(
         'No se pudieron cargar los productos: ' +
@@ -72,16 +92,177 @@ export default function Home() {
         nombre: producto.nombre,
 
         opciones: (producto.variantes ?? [])
-          .filter((variante: any) => variante.activo)
+          .filter(
+            (variante: any) =>
+              variante.activo
+          )
           .map((variante: any) => ({
             nombre: variante.nombre,
-            precio: Number(variante.precio),
+            precio: Number(
+              variante.precio
+            ),
           })),
       }));
 
     setProductos(productosFormateados);
     setCargando(false);
   }
+
+  // =========================
+  // CATEGORÍAS
+  // =========================
+
+  function normalizar(texto: string) {
+    return texto
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(
+        /[\u0300-\u036f]/g,
+        ''
+      )
+      .trim();
+  }
+
+  function obtenerCategoria(
+    nombre: string
+  ): Categoria {
+    const n = normalizar(nombre);
+
+    const postres = [
+      'mini hot cakes',
+      'crepa',
+      'fresas con crema',
+      'duraznos con crema',
+      'uvas con crema',
+      'ensalada de manzana',
+      'cheesecake',
+      'flan',
+      'pay de limon',
+    ];
+
+    const freidora = [
+      'alitas',
+      'boneless',
+      'papas a la francesa',
+      'platanos fritos',
+    ];
+
+    if (postres.includes(n)) {
+      return 'postres';
+    }
+
+    if (freidora.includes(n)) {
+      return 'freidora';
+    }
+
+    return 'bebidas';
+  }
+
+  // =========================
+  // EMOJIS
+  // =========================
+
+  function obtenerEmoji(
+    nombre: string
+  ) {
+    const n = normalizar(nombre);
+
+    if (n.includes('fresa')) {
+      return '🍓';
+    }
+
+    if (n.includes('durazno')) {
+      return '🍑';
+    }
+
+    if (n.includes('uva')) {
+      return '🍇';
+    }
+
+    if (
+      n.includes('ensalada de manzana')
+    ) {
+      return '🍎';
+    }
+
+    if (n.includes('cheesecake')) {
+      return '🍰';
+    }
+
+    if (n.includes('flan')) {
+      return '🍮';
+    }
+
+    if (n.includes('pay de limon')) {
+      return '🍋';
+    }
+
+    if (n.includes('mini hot cakes')) {
+      return '🥞';
+    }
+
+    if (n.includes('crepa')) {
+      return '🧇';
+    }
+
+    if (n.includes('alitas')) {
+      return '🍗';
+    }
+
+    if (n.includes('boneless')) {
+      return '🍗';
+    }
+
+    if (
+      n.includes('papas a la francesa')
+    ) {
+      return '🍟';
+    }
+
+    if (
+      n.includes('platanos fritos')
+    ) {
+      return '🍌';
+    }
+
+    if (n.includes('frappe')) {
+      return '🧋';
+    }
+
+    if (n.includes('malteada')) {
+      return '🥤';
+    }
+
+    if (n.includes('eskimo')) {
+      return '🥤';
+    }
+
+    if (n.includes('soda italiana')) {
+      return '🥤';
+    }
+
+    if (n.includes('cafe')) {
+      return '☕';
+    }
+
+    if (n.includes('chocolate frio')) {
+      return '🍫';
+    }
+
+    return '🥤';
+  }
+
+  const productosFiltrados =
+    productos.filter(
+      (producto) =>
+        obtenerCategoria(
+          producto.nombre
+        ) === categoria
+    );
+
+  // =========================
+  // CARRITO
+  // =========================
 
   function agregar(
     productoId: number,
@@ -102,7 +283,8 @@ export default function Home() {
           item.variante === variante
             ? {
                 ...item,
-                cantidad: item.cantidad + 1,
+                cantidad:
+                  item.cantidad + 1,
               }
             : item
         );
@@ -134,11 +316,15 @@ export default function Home() {
           item.variante === variante
             ? {
                 ...item,
-                cantidad: item.cantidad + cambio,
+                cantidad:
+                  item.cantidad + cambio,
               }
             : item
         )
-        .filter((item) => item.cantidad > 0)
+        .filter(
+          (item) =>
+            item.cantidad > 0
+        )
     );
   }
 
@@ -162,34 +348,51 @@ export default function Home() {
 
   const total = carrito.reduce(
     (suma, item) =>
-      suma + item.precio * item.cantidad,
+      suma +
+      item.precio *
+        item.cantidad,
     0
   );
 
-  async function enviarPedido() {
-    if (guardando || carrito.length === 0) return;
+  // =========================
+  // ENVIAR PEDIDO
+  // =========================
 
-    // Comprobar que tenga nombre
-    if (nombreCliente.trim() === '') {
-      alert('Escribe el nombre del cliente.');
+  async function enviarPedido() {
+    if (
+      guardando ||
+      carrito.length === 0
+    ) {
+      return;
+    }
+
+    if (
+      nombreCliente.trim() === ''
+    ) {
+      alert(
+        'Escribe el nombre del cliente.'
+      );
       return;
     }
 
     setGuardando(true);
 
-    // 1. Crear pedido SIN cobrar todavía
-    const { data: pedido, error: errorPedido } =
-      await supabase
-        .from('pedidos')
-        .insert({
-          estado: 'pendiente',
-          metodo_pago: null,
-          total: total,
-          notas: null,
-          nombre_cliente: nombreCliente.trim(),
-        })
-        .select()
-        .single();
+    // Crear pedido sin cobrar todavía
+    const {
+      data: pedido,
+      error: errorPedido,
+    } = await supabase
+      .from('pedidos')
+      .insert({
+        estado: 'pendiente',
+        metodo_pago: null,
+        total: total,
+        notas: null,
+        nombre_cliente:
+          nombreCliente.trim(),
+      })
+      .select()
+      .single();
 
     if (errorPedido) {
       console.error(
@@ -206,25 +409,32 @@ export default function Home() {
       return;
     }
 
-    // 2. Preparar productos del pedido
-    const detalles = carrito.map((item) => ({
-      pedido_id: pedido.id,
-      producto_id: item.productoId,
-      variante: item.variante,
-      cantidad: item.cantidad,
-      precio_unitario: item.precio,
-      subtotal: item.precio * item.cantidad,
-      notas:
-        item.notas.trim() === ''
-          ? null
-          : item.notas.trim(),
-    }));
+    // Preparar productos
+    const detalles =
+      carrito.map((item) => ({
+        pedido_id: pedido.id,
+        producto_id:
+          item.productoId,
+        variante: item.variante,
+        cantidad: item.cantidad,
+        precio_unitario:
+          item.precio,
+        subtotal:
+          item.precio *
+          item.cantidad,
 
-    // 3. Guardar productos
-    const { error: errorDetalles } =
-      await supabase
-        .from('detalle_pedido')
-        .insert(detalles);
+        notas:
+          item.notas.trim() === ''
+            ? null
+            : item.notas.trim(),
+      }));
+
+    // Guardar productos
+    const {
+      error: errorDetalles,
+    } = await supabase
+      .from('detalle_pedido')
+      .insert(detalles);
 
     if (errorDetalles) {
       console.error(
@@ -242,10 +452,13 @@ export default function Home() {
     }
 
     alert(
-      `Pedido #${pedido.numero ?? pedido.id} de ${nombreCliente.trim()} enviado correctamente.`
+      `Pedido #${
+        pedido.numero ??
+        pedido.id
+      } de ${nombreCliente.trim()} enviado correctamente.`
     );
 
-    // Preparar el siguiente pedido
+    // Preparar siguiente pedido
     setCarrito([]);
     setNombreCliente('');
     setGuardando(false);
@@ -262,15 +475,94 @@ export default function Home() {
           MORAS
         </h1>
 
-        <p style={{ marginTop: '5px' }}>
+        <p
+          style={{
+            marginTop: '5px',
+          }}
+        >
           Nuevo pedido
         </p>
       </header>
 
       <h2>Productos</h2>
 
+      {/* =====================
+          CATEGORÍAS AZULES
+      ====================== */}
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns:
+            'repeat(3, 1fr)',
+          gap: '10px',
+          marginBottom: '22px',
+        }}
+      >
+        <button
+          onClick={() =>
+            setCategoria('postres')
+          }
+          style={botonCategoria(
+            categoria === 'postres'
+          )}
+        >
+          <span
+            style={{
+              fontSize: '27px',
+            }}
+          >
+            🍰
+          </span>
+
+          <span>Postres</span>
+        </button>
+
+        <button
+          onClick={() =>
+            setCategoria('freidora')
+          }
+          style={botonCategoria(
+            categoria === 'freidora'
+          )}
+        >
+          <span
+            style={{
+              fontSize: '27px',
+            }}
+          >
+            🍟
+          </span>
+
+          <span>Freidora</span>
+        </button>
+
+        <button
+          onClick={() =>
+            setCategoria('bebidas')
+          }
+          style={botonCategoria(
+            categoria === 'bebidas'
+          )}
+        >
+          <span
+            style={{
+              fontSize: '27px',
+            }}
+          >
+            🥤
+          </span>
+
+          <span>
+            Bebidas y otras
+          </span>
+        </button>
+      </div>
+
       {cargando && (
-        <p>Cargando productos...</p>
+        <p>
+          Cargando productos...
+        </p>
       )}
 
       {error && (
@@ -287,64 +579,100 @@ export default function Home() {
         </div>
       )}
 
+      {/* =====================
+          PRODUCTOS
+      ====================== */}
+
       <div
         style={{
           display: 'grid',
           gridTemplateColumns:
-            'repeat(auto-fit, minmax(220px, 1fr))',
+            'repeat(auto-fit, minmax(180px, 1fr))',
           gap: '15px',
         }}
       >
-        {productos.map((producto) => (
-          <div
-            key={producto.id}
-            style={tarjeta}
-          >
-            <h3
-              style={{
-                marginTop: 0,
-              }}
+        {productosFiltrados.map(
+          (producto) => (
+            <div
+              key={producto.id}
+              style={tarjeta}
             >
-              {producto.nombre}
-            </h3>
-
-            {producto.opciones.map((opcion) => (
-              <button
-                key={opcion.nombre}
-                onClick={() =>
-                  agregar(
-                    producto.id,
-                    producto.nombre,
-                    opcion.nombre,
-                    opcion.precio
-                  )
-                }
+              <div
                 style={{
-                  width: '100%',
-                  padding: '14px',
-                  marginBottom: '8px',
-                  border: 'none',
-                  borderRadius: '10px',
-                  background: '#9c2864',
-                  color: 'white',
-                  fontSize: '16px',
-                  cursor: 'pointer',
+                  fontSize: '38px',
+                  textAlign: 'center',
+                  marginBottom: '5px',
                 }}
               >
-                {opcion.nombre === 'Único' ||
-                opcion.nombre === 'Normal'
-                  ? `$${opcion.precio}`
-                  : `${opcion.nombre} · $${opcion.precio}`}
-              </button>
-            ))}
-          </div>
-        ))}
+                {obtenerEmoji(
+                  producto.nombre
+                )}
+              </div>
+
+              <h3
+                style={{
+                  marginTop: 0,
+                  textAlign: 'center',
+                  minHeight: '24px',
+                }}
+              >
+                {producto.nombre}
+              </h3>
+
+              {producto.opciones.map(
+                (opcion) => (
+                  <button
+                    key={
+                      opcion.nombre
+                    }
+                    onClick={() =>
+                      agregar(
+                        producto.id,
+                        producto.nombre,
+                        opcion.nombre,
+                        opcion.precio
+                      )
+                    }
+                    style={{
+                      width: '100%',
+                      padding: '14px',
+                      marginBottom:
+                        '8px',
+                      border: 'none',
+                      borderRadius:
+                        '10px',
+                      background:
+                        '#9c2864',
+                      color: 'white',
+                      fontSize: '16px',
+                      cursor: 'pointer',
+                      fontWeight:
+                        'bold',
+                    }}
+                  >
+                    {opcion.nombre ===
+                      'Único' ||
+                    opcion.nombre ===
+                      'Normal'
+                      ? `$${opcion.precio}`
+                      : `${opcion.nombre} · $${opcion.precio}`}
+                  </button>
+                )
+              )}
+            </div>
+          )
+        )}
       </div>
 
-      <section style={tarjetaPedido}>
+      {/* =====================
+          PEDIDO
+      ====================== */}
+
+      <section
+        style={tarjetaPedido}
+      >
         <h2>Pedido</h2>
 
-        {/* NOMBRE DEL CLIENTE */}
         <div
           style={{
             marginBottom: '20px',
@@ -364,7 +692,9 @@ export default function Home() {
             type="text"
             value={nombreCliente}
             onChange={(e) =>
-              setNombreCliente(e.target.value)
+              setNombreCliente(
+                e.target.value
+              )
             }
             placeholder="Ej. Carlos"
             maxLength={50}
@@ -378,7 +708,8 @@ export default function Home() {
               color: '#777',
             }}
           >
-            Todavía no has agregado productos.
+            Todavía no has agregado
+            productos.
           </p>
         )}
 
@@ -387,26 +718,36 @@ export default function Home() {
             key={`${item.productoId}-${item.variante}`}
             style={{
               padding: '15px 0',
-              borderBottom: '1px solid #eee',
+              borderBottom:
+                '1px solid #eee',
             }}
           >
             <div
               style={{
                 display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
+                justifyContent:
+                  'space-between',
+                alignItems:
+                  'center',
                 gap: '10px',
               }}
             >
               <div>
                 <strong>
+                  {obtenerEmoji(
+                    item.nombre
+                  )}{' '}
                   {item.nombre}
                 </strong>
 
-                {item.variante !== 'Único' &&
-                  item.variante !== 'Normal' && (
+                {item.variante !==
+                  'Único' &&
+                  item.variante !==
+                    'Normal' && (
                     <div>
-                      {item.variante}
+                      {
+                        item.variante
+                      }
                     </div>
                   )}
 
@@ -418,7 +759,8 @@ export default function Home() {
               <div
                 style={{
                   display: 'flex',
-                  alignItems: 'center',
+                  alignItems:
+                    'center',
                   gap: '10px',
                 }}
               >
@@ -430,7 +772,9 @@ export default function Home() {
                       -1
                     )
                   }
-                  style={botonCantidad}
+                  style={
+                    botonCantidad
+                  }
                 >
                   −
                 </button>
@@ -447,7 +791,9 @@ export default function Home() {
                       1
                     )
                   }
-                  style={botonCantidad}
+                  style={
+                    botonCantidad
+                  }
                 >
                   +
                 </button>
@@ -482,20 +828,25 @@ export default function Home() {
         <div
           style={{
             display: 'flex',
-            justifyContent: 'space-between',
+            justifyContent:
+              'space-between',
             marginTop: '20px',
             fontSize: '26px',
           }}
         >
           <strong>Total</strong>
-          <strong>${total}</strong>
+
+          <strong>
+            ${total}
+          </strong>
         </div>
 
         <button
           onClick={enviarPedido}
           disabled={
             carrito.length === 0 ||
-            nombreCliente.trim() === '' ||
+            nombreCliente.trim() ===
+              '' ||
             guardando
           }
           style={{
@@ -506,8 +857,10 @@ export default function Home() {
             borderRadius: '12px',
 
             background:
-              carrito.length === 0 ||
-              nombreCliente.trim() === '' ||
+              carrito.length ===
+                0 ||
+              nombreCliente.trim() ===
+                '' ||
               guardando
                 ? '#ccc'
                 : '#9c2864',
@@ -515,6 +868,11 @@ export default function Home() {
             color: 'white',
             fontSize: '18px',
             fontWeight: 'bold',
+
+            cursor:
+              guardando
+                ? 'default'
+                : 'pointer',
           }}
         >
           {guardando
@@ -525,6 +883,10 @@ export default function Home() {
     </main>
   );
 }
+
+// =========================
+// ESTILOS
+// =========================
 
 const estiloPrincipal = {
   minHeight: '100vh',
@@ -571,9 +933,47 @@ const botonCantidad = {
 
 const campo = {
   width: '100%',
-  boxSizing: 'border-box' as const,
+  boxSizing:
+    'border-box' as const,
   padding: '14px',
   border: '1px solid #ddd',
   borderRadius: '10px',
   fontSize: '16px',
 };
+
+// =========================
+// BOTONES DE CATEGORÍA AZULES
+// =========================
+
+function botonCategoria(
+  activa: boolean
+): React.CSSProperties {
+  return {
+    minHeight: '82px',
+    padding: '10px 6px',
+
+    border: activa
+      ? '2px solid #3b82f6'
+      : '2px solid #bfdbfe',
+
+    borderRadius: '14px',
+
+    background: activa
+      ? '#3b82f6'
+      : '#dbeafe',
+
+    color: activa
+      ? 'white'
+      : '#1e40af',
+
+    fontWeight: 'bold',
+    fontSize: '15px',
+    cursor: 'pointer',
+
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '4px',
+  };
+}
